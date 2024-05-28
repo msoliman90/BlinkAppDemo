@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Blink App Demo</string>
+
+    <string name="service_message">BlinkApp protecting you while driving</string>
+
+    <string name="trip_notification_start">You are always safe with BlinkApp.  We are with you and will take care of you</string>
+    <string name="trip_notification_end">Trip has ended safely, enjoy safety with BlinkApp</string>
+    <string name="battery_optimization">Battery optimization</string>
+    <string name="battery_optimization_content">If you worry to forget opening the application each time you drive and keeping the application working always in the background, please stop the battery optimization option.</string>
+    <string name="draw_overlay_ok">OK</string>
+    <string name="draw_overlay_cancel">Cancel</string>
+</resources>

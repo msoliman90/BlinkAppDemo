@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "916486195565",
+    "project_id": "blinkapp-demo",
+    "storage_bucket": "blinkapp-demo.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:916486195565:android:6cf386ee491d3faa7af264",
+        "android_client_info": {
+          "package_name": "com.blinkllc.blinkappdemo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1xkf_c2UPtBga08PFBLMiu4Z8aJw6h38"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
