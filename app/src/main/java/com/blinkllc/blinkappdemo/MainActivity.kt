@@ -52,21 +52,21 @@ class MainActivity : AppCompatActivity(),
 
     }
     private fun startBlinkSDKService() {
-    Log.d(TAG, "startBlinkServiceigdggkdnkgd: "+isAccessFineAndCoarseLocationPermissionsGranted(this@MainActivity))
-    if (isAccessFineAndCoarseLocationPermissionsGranted(this@MainActivity)){
-        val intent = Intent(this, BlinkSDKService::class.java)
-        Log.d(TAG, "serviceMoooHome: ")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
+        Log.d(TAG, "startBlinkServiceigdggkdnkgd: "+isAccessFineAndCoarseLocationPermissionsGranted(this@MainActivity))
+        if (isAccessFineAndCoarseLocationPermissionsGranted(this@MainActivity)){
+            val intent = Intent(this, BlinkSDKService::class.java)
+            Log.d(TAG, "serviceMoooHome: ")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
         }
-    }
 
     }
     private fun stopBlinkSDKService(){
-            val intent = Intent(this@MainActivity, BlinkSDKService::class.java)
-            stopService(intent)
+        val intent = Intent(this@MainActivity, BlinkSDKService::class.java)
+        stopService(intent)
     }
 
     override fun onResume() {
@@ -140,56 +140,122 @@ class MainActivity : AppCompatActivity(),
     private fun handleTripModule(){
         activityMainBinding.apply {
             tripSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
-            if (isChecked) {
-//                blinkManager.startTripWithLocationProcessing(this@MainActivity)
-                blinkManager.startTripWithLocationProcessing(object : TripEventListener {
-                    /**
-                     * a callback method called when trip started
-                     */
-                    override fun onTripStarted() {
-                        updateStartTripStatus()
-                    }
+                if (isChecked) {
+//                blinkManager.startTripWithLocation(this@MainActivity)
+                    blinkManager.startSavingTripData(object : TripEventListener {
+                        /**
+                         * a callback method called when trip started
+                         */
+                        override fun onTripStarted() {
+                            updateStartTripStatus()
+                            blinkManager.startDriverBehavior(object : DriverBehaviorEventListener {
+                                /**
+                                 * a callback method called when driver behavior updated.
+                                 *
+                                 * @param type the type of driver behavior
+                                 * @param level the level of driver behavior
+                                 */
+                                override fun onDriverBehaviorDetected(type:Int , level:Int) {
+                                    updateDriverBehaviour(type,level)
+                                }
+                                /**
+                                 * Called when there is a failure in the drive behavior.
+                                 *
+                                 * @param error the description or details of the failure
+                                 */
+                                override fun onDriverBehaviorFailure(error: String) {
+                                    runOnUiThread {
+                                        Toast.makeText(this@MainActivity, error, Toast.LENGTH_SHORT).show()
+                                        activityMainBinding.incidentSwitch.isChecked = false
+                                    }
+                                }
 
-                    /**
-                     * a callback method called when trip ended
-                     */
-                    override fun onTripEnded() {
-                        updateEndTripStatus()
-                    }
-                    /**
-                     * Called when a trip is successfully registered.
-                     */
-                    override fun onTripRegisteredSuccessfully() {
-                        runOnUiThread {
-                            Toast.makeText(this@MainActivity, "on Trip Registered Successfully", Toast.LENGTH_SHORT).show()
-                            activityMainBinding.tripSwitch.isChecked = true
-                        }
-                    }
-                    /**
-                     * Called when a trip is successfully unregistered.
-                     */
-                    override fun onTripUnRegisteredSuccessfully() {
-                        runOnUiThread {
-                            Toast.makeText(this@MainActivity, "on Trip Unregistered Successfully", Toast.LENGTH_SHORT).show()
-                            activityMainBinding.tripSwitch.isChecked = false
-                        }
-                    }
-                    /**
-                     * Called when a trip registration fails.
-                     *
-                     * @param error the description or details of the failure
-                     */
-                    override fun onTripFailed(error: String) {
-                        Log.d(TAG, "onTripFailed: "+error)
-                        runOnUiThread {
-                            Toast.makeText(this@MainActivity, error, Toast.LENGTH_SHORT).show()
-                            activityMainBinding.tripSwitch.isChecked = false
-                        }
-                    }
+                            },minimumIncidentLevel = 5,withSavingIncident = true, calculateScore = true)
 
-                })
+                            blinkManager.startDriverActivitiesStatusOfGPS(object :GPSChangesEventListener{
+                                /**
+                                 * a callback method called when GPS state updated
+                                 *
+                                 * @param isGPSChanges the state of GPS
+                                 */
+                                override fun onGPSStateDetected(isGPSChanges: Boolean) {
+                                    updateGPSStatus(isGPSChanges)
+                                }
+                                /**
+                                 * Called when GPS State fails.
+                                 *
+                                 * @param error the description or details of the failure
+                                 */
+                                override fun onGPSFailed(error: String) {
+                                    runOnUiThread {
+                                        Toast.makeText(this@MainActivity, error, Toast.LENGTH_SHORT).show()
+                                        activityMainBinding.gpsSwitch.isChecked = false
+                                    }
+                                }
 
-//                blinkManager.startTripProcessing(object : TripEventListener {
+                            }, withSavingDriverActivity = true)
+
+
+                            blinkManager.startDriverActivitiesForCalls(object:CallEventListener{
+                                /**
+                                 * a callback method called when phone call duration updated
+                                 *
+                                 * @param duration the duration of phone call
+                                 */
+                                override fun onCallDurationDetected(duration: Long) {
+                                    updateCallStatusWithDuration(duration)
+                                }
+                                /**
+                                 * a callback method called when phone call state updated
+                                 *
+                                 * @param state the state of phone call
+                                 */
+                                override fun onCallStateDetected(state: Int) {
+                                    updateCallStatus(state)
+                                }
+                                /**
+                                 * Called when Call State fails.
+                                 *
+                                 * @param error the description or details of the failure
+                                 */
+                                override fun onCallStateFailed(error: String) {
+                                    runOnUiThread {
+                                        Toast.makeText(this@MainActivity, error, Toast.LENGTH_SHORT).show()
+                                        activityMainBinding.callSwitch.isChecked = false
+                                    }
+                                }
+
+                            }, withSavingDriverActivity = true)
+
+                        }
+
+
+
+                        /**
+                         * a callback method called when trip ended
+                         */
+                        override fun onTripEnded() {
+                            updateEndTripStatus()
+                            blinkManager.stopDriverBehavior()
+                            blinkManager.stopDriverActivitiesStatusOfGPS()
+                        }
+
+                        /**
+                         * Called when a trip registration fails.
+                         *
+                         * @param error the description or details of the failure
+                         */
+                        override fun onTripFailed(error: String) {
+                            Log.d(TAG, "onTripFailedaddas: "+error)
+                            runOnUiThread {
+                                Toast.makeText(this@MainActivity, error, Toast.LENGTH_SHORT).show()
+                                activityMainBinding.tripSwitch.isChecked = false
+                            }
+                        }
+
+                    }, userId = "299", withPoints = true, withLiveTracking = true, pointInterval = 5)
+
+//                blinkManager.startTrip(object : TripEventListener {
 //                    /**
 //                     * a callback method called when trip started
 //                     */
@@ -203,18 +269,7 @@ class MainActivity : AppCompatActivity(),
 //                    override fun onTripEnded() {
 //
 //                    }
-//                    /**
-//                     * Called when a trip is successfully registered.
-//                     */
-//                    override fun onTripRegisteredSuccessfully() {
 //
-//                    }
-//                    /**
-//                     * Called when a trip is successfully unregistered.
-//                     */
-//                    override fun onTripUnRegisteredSuccessfully() {
-//
-//                    }
 //                    /**
 //                     * Called when a trip registration fails.
 //                     *
@@ -227,26 +282,27 @@ class MainActivity : AppCompatActivity(),
 //                })
 
 
-            } else {
-                blinkManager.stopTripWithLocationProcessing()
-//                blinkManager.stopTripProcessing()
+                } else {
+                    blinkManager.stopSavingTripData()
+//                blinkManager.stopTripWithLocation()
+//                blinkManager.stopTrip()
 
+                }
             }
-        }
         }
     }
     private fun handleDriverBehaviourModule() {
         activityMainBinding.apply {
             incidentSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
                 if (isChecked) {
-                    blinkManager.startDriverBehaviorProcessing(object : DriverBehaviorEventListener {
+                    blinkManager.startDriverBehavior(object : DriverBehaviorEventListener {
                         /**
                          * a callback method called when driver behavior updated.
                          *
                          * @param type the type of driver behavior
                          * @param level the level of driver behavior
                          */
-                        override fun onDriverBehaviorChanged(type:Int , level:Int) {
+                        override fun onDriverBehaviorDetected(type:Int , level:Int) {
                             updateDriverBehaviour(type,level)
                         }
                         /**
@@ -254,7 +310,7 @@ class MainActivity : AppCompatActivity(),
                          *
                          * @param error the description or details of the failure
                          */
-                        override fun onDriverBehaviourFailure(error: String) {
+                        override fun onDriverBehaviorFailure(error: String) {
                             runOnUiThread {
                                 Toast.makeText(this@MainActivity, error, Toast.LENGTH_SHORT).show()
                                 activityMainBinding.incidentSwitch.isChecked = false
@@ -262,14 +318,14 @@ class MainActivity : AppCompatActivity(),
                         }
 
                     })
-//                    blinkManager.startDriverBehaviorProcessing(object : DriverBehaviorEventListener {
+//                    blinkManager.startDriverBehavior(object : DriverBehaviorEventListener {
 //                        /**
 //                         * a callback method called when driver behavior updated.
 //                         *
 //                         * @param event the type of driver behavior
 //                         * @param level the level of driver behavior
 //                         */
-//                        override fun onDriverBehaviorChanged(type:Int , level:Int) {
+//                        override fun onDriverBehaviorDetected(type:Int , level:Int) {
 //                            updateDriverBehaviour(type,level)
 //                        }
 //                        /**
@@ -286,7 +342,7 @@ class MainActivity : AppCompatActivity(),
 //
 //                    },5)
                 } else {
-                    blinkManager.stopDriverBehaviorProcessing()
+                    blinkManager.stopDriverBehavior()
                 }
             }
         }
@@ -296,7 +352,7 @@ class MainActivity : AppCompatActivity(),
         activityMainBinding.apply {
             accidentSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
                 if (isChecked) {
-                    blinkManager.startAccidentProcessing(object :AccidentEventListener{
+                    blinkManager.startAccident(object :AccidentEventListener{
                         /**
                          * a callback method called when detect accident
                          *
@@ -304,6 +360,8 @@ class MainActivity : AppCompatActivity(),
                          */
                         override fun onAccidentDetected(severity: Int) {
                             updateDriverAccident(severity)
+                            // if user confirm accident you may use this method to update and end trip in case of use start trip for saving only
+                            // blinkManager.stopSavingTripData(EndTripSettings.CONFIRMED_ACCIDENT)
                         }
                         /**
                          * Called when accident fails.
@@ -318,7 +376,7 @@ class MainActivity : AppCompatActivity(),
                         }
 
                     })
-//                    blinkManager.startAccidentProcessing(object :AccidentEventListener{
+//                    blinkManager.startAccident(object :AccidentEventListener{
 //                        /**
 //                         * a callback method called when detect accident
 //                         *
@@ -341,7 +399,7 @@ class MainActivity : AppCompatActivity(),
 //
 //                    },4)
                 } else {
-                    blinkManager.stopAccidentProcessing()
+                    blinkManager.stopAccident()
                 }
             }
         }
@@ -350,13 +408,13 @@ class MainActivity : AppCompatActivity(),
         activityMainBinding.apply {
             callSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
                 if (isChecked) {
-                    blinkManager.startDriverActivitiesProcessingForCalling(object:CallEventListener{
+                    blinkManager.startDriverActivitiesForCalls(object:CallEventListener{
                         /**
                          * a callback method called when phone call duration updated
                          *
                          * @param duration the duration of phone call
                          */
-                        override fun onCallDurationChanged(duration: Long) {
+                        override fun onCallDurationDetected(duration: Long) {
                             updateCallStatusWithDuration(duration)
                         }
                         /**
@@ -364,7 +422,7 @@ class MainActivity : AppCompatActivity(),
                          *
                          * @param state the state of phone call
                          */
-                        override fun onCallStateChanged(state: Int) {
+                        override fun onCallStateDetected(state: Int) {
                             updateCallStatus(state)
                         }
                         /**
@@ -381,13 +439,13 @@ class MainActivity : AppCompatActivity(),
 
                     })
 //
-//                    blinkManager.startDriverActivitiesProcessing(DriverActivitiesSettings.CALLING_STATE,object:CallEventListener{
+//                    blinkManager.startDriverActivities(DriverActivitiesSettings.CALLING_STATE,object:CallEventListener{
 //                        /**
 //                         * a callback method called when phone call duration updated
 //                         *
 //                         * @param duration the duration of phone call
 //                         */
-//                        override fun onCallDurationChanged(duration: Long) {
+//                        override fun onCallDurationDetected(duration: Long) {
 //                            TODO("Not yet implemented")
 //                        }
 //                        /**
@@ -395,7 +453,7 @@ class MainActivity : AppCompatActivity(),
 //                         *
 //                         * @param state the state of phone call
 //                         */
-//                        override fun onCallStateChanged(state: Int) {
+//                        override fun onCallStateDetected(state: Int) {
 //                            TODO("Not yet implemented")
 //                        }
 //                        /**
@@ -411,8 +469,8 @@ class MainActivity : AppCompatActivity(),
 
 
                 } else {
-                    blinkManager.stopDriverActivitiesProcessingForCalling()
-//                    blinkManager.stopDriverActivitiesProcessing(DriverActivitiesSettings.CALLING_STATE)
+                    blinkManager.stopDriverActivitiesForCalls()
+//                    blinkManager.stopDriverActivities(DriverActivitiesSettings.CALLING_STATE)
                 }
             }
         }
@@ -421,31 +479,31 @@ class MainActivity : AppCompatActivity(),
         activityMainBinding.apply {
             headsetSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
                 if (isChecked) {
-               blinkManager.startDriverActivitiesProcessingForHeadset(object :HeadsetEventListener{
-                   /**
-                    * a callback method called when headset state updated
-                    *
-                    * @param pluggedIn the state of headset
-                    */
-                   override fun onHeadsetStateChanged(pluggedIn: Boolean) {
-                       updateHeadsetStatus(pluggedIn)
-                   }
-                   /**
-                    * Called when Headset State fails.
-                    *
-                    * @param error the description or details of the failure
-                    */
-                   override fun onHeadsetFailed(error: String) {
-                       runOnUiThread {
-                           Toast.makeText(this@MainActivity, error, Toast.LENGTH_SHORT).show()
-                           activityMainBinding.headsetSwitch.isChecked = false
-                       }
-                   }
+                    blinkManager.startDriverActivitiesForHeadset(object :HeadsetEventListener{
+                        /**
+                         * a callback method called when headset state updated
+                         *
+                         * @param pluggedIn the state of headset
+                         */
+                        override fun onHeadsetStateDetected(pluggedIn: Boolean) {
+                            updateHeadsetStatus(pluggedIn)
+                        }
+                        /**
+                         * Called when Headset State fails.
+                         *
+                         * @param error the description or details of the failure
+                         */
+                        override fun onHeadsetFailed(error: String) {
+                            runOnUiThread {
+                                Toast.makeText(this@MainActivity, error, Toast.LENGTH_SHORT).show()
+                                activityMainBinding.headsetSwitch.isChecked = false
+                            }
+                        }
 
-               })
-//                    blinkManager.startDriverActivitiesProcessing(DriverActivitiesSettings.HEADSET_STATE, headsetEventListener = object :HeadsetEventListener{
+                    })
+//                    blinkManager.startDriverActivities(DriverActivitiesSettings.HEADSET_STATE, headsetEventListener = object :HeadsetEventListener{
 //
-//                        override fun onHeadsetStateChanged(pluggedIn: Boolean) {
+//                        override fun onHeadsetStateDetected(pluggedIn: Boolean) {
 //                        }
 //                        override fun onHeadsetFailed(error: String) {
 //                        }
@@ -454,8 +512,8 @@ class MainActivity : AppCompatActivity(),
 //                    })
                 }
                 else {
-                    blinkManager.stopDriverActivitiesProcessingForHeadset()
-//                    blinkManager.stopDriverActivitiesProcessing(DriverActivitiesSettings.HEADSET_STATE)
+                    blinkManager.stopDriverActivitiesForHeadset()
+//                    blinkManager.stopDriverActivities(DriverActivitiesSettings.HEADSET_STATE)
                 }
             }
         }
@@ -464,13 +522,13 @@ class MainActivity : AppCompatActivity(),
         activityMainBinding.apply {
             chargingSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
                 if (isChecked) {
-                    blinkManager.startDriverActivitiesProcessingForCharging(object :ChargerEventListener{
+                    blinkManager.startDriverActivitiesForCharging(object :ChargerEventListener{
                         /**
                          * a callback method called when charging state updated
                          *
                          * @param isCharging the state of charging
                          */
-                        override fun onChargingStateChanged(isCharging: Boolean) {
+                        override fun onChargingStateDetected(isCharging: Boolean) {
                             updateChargingStatus(isCharging)
                         }
                         /**
@@ -485,13 +543,13 @@ class MainActivity : AppCompatActivity(),
                             }
                         }
                     })
-//                    blinkManager.startDriverActivitiesProcessing(DriverActivitiesSettings.CHARGING_STATE, chargerEventListener = object:ChargerEventListener{
+//                    blinkManager.startDriverActivities(DriverActivitiesSettings.CHARGING_STATE, chargerEventListener = object:ChargerEventListener{
 //                        /**
 //                         * a callback method called when charging state updated
 //                         *
 //                         * @param isCharging the state of charging
 //                         */
-//                        override fun onChargingStateChanged(isCharging: Boolean) {
+//                        override fun onChargingStateDetected(isCharging: Boolean) {
 //                        }
 //                        /**
 //                         * Called when Charging State fails.
@@ -502,8 +560,8 @@ class MainActivity : AppCompatActivity(),
 //                        }
 //                    })
                 } else {
-                    blinkManager.stopDriverActivitiesProcessingForCharging()
-                    blinkManager.stopDriverActivitiesProcessing(DriverActivitiesSettings.CHARGING_STATE)
+                    blinkManager.stopDriverActivitiesForCharging()
+                    blinkManager.stopDriverActivities(DriverActivitiesSettings.CHARGING_STATE)
                 }
             }
         }
@@ -513,13 +571,13 @@ class MainActivity : AppCompatActivity(),
         activityMainBinding.apply {
             gpsSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
                 if (isChecked) {
-                    blinkManager.startDriverActivitiesProcessingForGPS(object :GPSChangesEventListener{
+                    blinkManager.startDriverActivitiesStatusOfGPS(object :GPSChangesEventListener{
                         /**
                          * a callback method called when GPS state updated
                          *
                          * @param isGPSChanges the state of GPS
                          */
-                        override fun onGPSStateChanged(isGPSChanges: Boolean) {
+                        override fun onGPSStateDetected(isGPSChanges: Boolean) {
                             updateGPSStatus(isGPSChanges)
                         }
                         /**
@@ -536,8 +594,8 @@ class MainActivity : AppCompatActivity(),
 
                     })
 
-//                    blinkManager.startDriverActivitiesProcessing(DriverActivitiesSettings.GPS_STATE, gpsChangesEventListener = object :GPSChangesEventListener{
-//                        override fun onGPSStateChanged(isGPSChanges: Boolean) {
+//                    blinkManager.startDriverActivities(DriverActivitiesSettings.GPS_STATE, gpsChangesEventListener = object :GPSChangesEventListener{
+//                        override fun onGPSStateDetected(isGPSChanges: Boolean) {
 //
 //                        }
 //                        override fun onGPSFailed(error: String) {
@@ -548,8 +606,8 @@ class MainActivity : AppCompatActivity(),
 //                    })
 
                 } else {
-                    blinkManager.stopDriverActivitiesProcessingForGPS()
-//                    blinkManager.stopDriverActivitiesProcessing(DriverActivitiesSettings.GPS_STATE)
+                    blinkManager.stopDriverActivitiesStatusOfGPS()
+//                    blinkManager.stopDriverActivities(DriverActivitiesSettings.GPS_STATE)
                 }
             }
         }
@@ -559,7 +617,7 @@ class MainActivity : AppCompatActivity(),
         activityMainBinding.apply {
             batterySwitch.setOnCheckedChangeListener { buttonView, isChecked ->
                 if (isChecked) {
-                    blinkManager.startDriverActivitiesProcessingForBatteryLow(object :BatteryLowEventListener{
+                    blinkManager.startDriverActivitiesForBatteryLow(object :BatteryLowEventListener{
                         /**
                          * a callback method called when Battery Low detected
                          *
@@ -581,7 +639,7 @@ class MainActivity : AppCompatActivity(),
                     },/*minimumBatteryLevel*/15,/*periodWithSecond*/10)
 
 //                    blinkManager.addBatteryLowConfiguration(10,10)
-//                   blinkManager.startDriverActivitiesProcessing(DriverActivitiesSettings.BATTERY_STATE, batteryLowEventListener = object :BatteryLowEventListener{
+//                   blinkManager.startDriverActivities(DriverActivitiesSettings.BATTERY_STATE, batteryLowEventListener = object :BatteryLowEventListener{
 //                       /**
 //                        * a callback method called when Battery Low detected
 //                        *
@@ -599,8 +657,8 @@ class MainActivity : AppCompatActivity(),
 //                   })
 
                 } else {
-                    blinkManager.stopDriverActivitiesProcessingForBatteryLow()
-//                    blinkManager.stopDriverActivitiesProcessing(DriverActivitiesSettings.BATTERY_STATE)
+                    blinkManager.stopDriverActivitiesForBatteryLow()
+//                    blinkManager.stopDriverActivities(DriverActivitiesSettings.BATTERY_STATE)
                 }
             }
         }
@@ -612,13 +670,13 @@ class MainActivity : AppCompatActivity(),
                     val  location = Location("")
                     location.latitude = 30.588
                     location.longitude = 31.954
-                    blinkManager.startDriverActivitiesProcessingForMocking(object :MockingEventListener{
+                    blinkManager.startDriverActivitiesForMocking(object :MockingEventListener{
                         /**
                          * a callback method called when mocking state updated
                          *
                          * @param isMocking the state of mocking
                          */
-                        override fun onMockingStateChanged(isMocking: Boolean) {
+                        override fun onMockingStateDetected(isMocking: Boolean) {
                             TODO("Not yet implemented")
                         }
                         /**
@@ -631,13 +689,13 @@ class MainActivity : AppCompatActivity(),
                         }
                     },location)
 //                    blinkManager.addLocationForMocking(location)
-//                    blinkManager.startDriverActivitiesProcessing(DriverActivitiesSettings.MOCKING_STATE, mockingEventListener = object :MockingEventListener{
+//                    blinkManager.startDriverActivities(DriverActivitiesSettings.MOCKING_STATE, mockingEventListener = object :MockingEventListener{
 //                        /**
 //                         * a callback method called when mocking state updated
 //                         *
 //                         * @param isMocking the state of mocking
 //                         */
-//                        override fun onMockingStateChanged(isMocking: Boolean) {
+//                        override fun onMockingStateDetected(isMocking: Boolean) {
 //
 //                        }
 //                        /**
@@ -650,7 +708,7 @@ class MainActivity : AppCompatActivity(),
 //                    })
 
                 } else {
-                    blinkManager.stopDriverActivitiesProcessing(DriverActivitiesSettings.MOCKING_STATE)
+                    blinkManager.stopDriverActivities(DriverActivitiesSettings.MOCKING_STATE)
                 }
             }
         }
@@ -658,14 +716,14 @@ class MainActivity : AppCompatActivity(),
 
     private fun updateStartTripStatus(){
         runOnUiThread {
-                activityMainBinding.tripStatus.text = "On Trip"
-            }
+            activityMainBinding.tripStatus.text = "On Trip"
+        }
 
     }
     private fun updateEndTripStatus(){
         runOnUiThread {
-                activityMainBinding.tripStatus.text = "Parked"
-            }
+            activityMainBinding.tripStatus.text = "Parked"
+        }
     }
 
     private fun updateDriverBehaviour(type: Int,level: Int){
@@ -673,8 +731,8 @@ class MainActivity : AppCompatActivity(),
             when (type)
             {
                 1 ->{
-                activityMainBinding.incidentStatus.text = "Brake - Level: $level"
-            }
+                    activityMainBinding.incidentStatus.text = "Brake - Level: $level"
+                }
                 4->{
                     activityMainBinding.incidentStatus.text = "Swerve - Level: $level"
                 }
@@ -753,7 +811,7 @@ class MainActivity : AppCompatActivity(),
 
     private fun updateBatteryLowStatus(){
         runOnUiThread {
-                activityMainBinding.batteryStatus.text = "Battery Is Low"
+            activityMainBinding.batteryStatus.text = "Battery Is Low"
         }
 
     }
@@ -825,7 +883,7 @@ class MainActivity : AppCompatActivity(),
         }
     }
 
-    override fun onMockingStateChanged(isMocking: Boolean) {
+    override fun onMockingStateDetected(isMocking: Boolean) {
         updateMockingStatus(isMocking)
     }
 
