@@ -69,7 +69,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
             <LinearLayout
-                android:id="@+id/service_container"
+                android:id="@+id/auto_service_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -80,17 +80,42 @@
                 app:layout_constraintTop_toBottomOf="@id/title"
                 >
                 <TextView
-                    android:id="@+id/service_text"
+                    android:id="@+id/auto_service"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:padding="8dp"
-                    android:text="Foreground Service"
+                    android:text="Auto Service"
                     android:textSize="18sp" />
                 <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/service_switch"
+                    android:id="@+id/auto_service_switch"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:padding="8dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/manual_service_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                android:paddingHorizontal="16dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/auto_service_container"
+                >
+            <TextView
+                android:id="@+id/manual_service"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:text="Manual Service"
+                android:textSize="18sp" />
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/manual_service_switch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="8dp" />
             </LinearLayout>
 
             <TableLayout
@@ -101,8 +126,7 @@
                 android:padding="8dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/service_container">
-
+                app:layout_constraintTop_toBottomOf="@id/manual_service_container">
                 <TableRow
                     android:id="@+id/tableRowA"
                     android:layout_width="match_parent"

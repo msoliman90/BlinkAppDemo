@@ -12,6 +12,10 @@ import android.widget.Toast
 import com.blinkapp.engine.company_user.view.InitializationResult
 import com.blinkapp.engine.interfaces.*
 import com.blinkapp.engine.managers.BlinkManager
+import com.blinkapp.engine.managers.trip_managers.EndTripData
+import com.blinkapp.engine.managers.trip_managers.LastLocationData
+import com.blinkapp.engine.managers.trip_managers.StartTripData
+import com.blinkapp.engine.managers.trip_managers.TripPointData
 import com.blinkapp.engine.utils.DriverActivitiesSettings
 import com.blinkapp.engine.utils.DriverBehaviorType
 import com.blinkapp.engine.utils.EndTripSettings
@@ -21,6 +25,7 @@ import com.blinkllc.blinkappdemo.notification.NotificationsHelper
 import com.blinkllc.blinkappdemo.utils.Constants
 
 class BlinkSDKService : Service(), TripEventListener,
+    TripDataEventListener,
     DriverBehaviorEventListener,
     AccidentEventListener,
     CallEventListener,
@@ -28,14 +33,14 @@ class BlinkSDKService : Service(), TripEventListener,
     ChargerEventListener,
     GPSChangesEventListener,
     BatteryLowEventListener,
-    MockingEventListener,
-    LocationBasedDriverBehaviorListener{
+    MockingEventListener{
     private val TAG = "BlinkSDKService"
     private lateinit var blinkManager: BlinkManager
 
 
     companion object{
         var isBlinkSDKServiceRunning = false
+        var isForAuto = true
     }
     private val binder = LocalBinder()
 
@@ -56,21 +61,31 @@ class BlinkSDKService : Service(), TripEventListener,
     }
     private fun initializeBlinkManager() {
         blinkManager = BlinkManager.getInstance(this@BlinkSDKService)
-        blinkManager.initialize(Constants.SECRET_KEY,object : InitializationResult {
+        blinkManager.initialize(Constants.SECRET_KEY, "",object : InitializationResult {
             override fun onInitializationSuccess(message: String) {
                 // Here You can start any modules you want
+                Toast.makeText(this@BlinkSDKService, message, Toast.LENGTH_SHORT).show()
                 Log.d(TAG, "onInitializationSuccess: "+ message)
-//                blinkManager.startTrip(this@BlinkSDKService)
-//                blinkManager.startTripWithLocation(this@BlinkSDKService)
-                blinkManager.startSavingTripData(this@BlinkSDKService,"299",
-                    withPoints = true,
-                    withLiveTracking = true,
-                    pointInterval = 5
-                )
+                if(isForAuto){
+                    blinkManager.saveAutoTripToFStore(this@BlinkSDKService,
+                        withPoints = true,
+                        withLiveTracking = true,
+                        pointInterval = 5
+                    )
+                }
+                else{
+                    blinkManager.saveManualTripToFStore(this@BlinkSDKService,
+                        withPoints = true,
+                        withLiveTracking = true,
+                        pointInterval = 5
+                    )
+                }
+
             }
             override fun onInitializationFailure(error: String) {
                 //You can see the error of failure here
                 Log.d(TAG, "onInitializationFailure: "+error)
+                Toast.makeText(this@BlinkSDKService, error, Toast.LENGTH_SHORT).show()
             }
 
         })
@@ -78,25 +93,20 @@ class BlinkSDKService : Service(), TripEventListener,
 
     private fun startAllModules(){
         blinkManager.startDriverBehavior(this@BlinkSDKService,3,
+            speedLimit = 100.0,
+            overSpeedThreshold = 10.0,
             withSavingIncident = true,
             calculateScore = true
         )
-        blinkManager.startLocationBasedDriverBehaviorDetection(locationBasedDriverBehaviorListener = this, overSpeedLimit = 100.0, overSpeedThreshold = 5.0, withSaving = true)
         blinkManager.startAccident(this@BlinkSDKService, minimumSeverity = 3)
         blinkManager.startDriverActivitiesForCalls(this@BlinkSDKService, withSavingDriverActivity = true)
         blinkManager.startDriverActivitiesForHeadset(this@BlinkSDKService)
         blinkManager.startDriverActivitiesForCharging(this@BlinkSDKService,withSavingDriverActivity = true)
         blinkManager.startDriverActivitiesStatusOfGPS(this@BlinkSDKService,withSavingDriverActivity = true)
         blinkManager.startDriverActivitiesForBatteryLow(this@BlinkSDKService, minimumBatteryLevel = 3, periodWithSecondForBatteryLevel = 60,withSavingDriverActivity = true)
-//        val  location = Location("")
-//        location.latitude = 30.588
-//        location.longitude = 31.954
-//        blinkManager.addLocationForMocking(location)
-//        blinkManager.startDriverActivitiesForMocking(this@BlinkSDKService,location)
 
     }
     private fun stopAllModules(){
-        blinkManager.stopTripWithLocation()
         blinkManager.stopDriverBehavior()
         blinkManager.stopAccident()
         blinkManager.stopDriverActivities(DriverActivitiesSettings.CALLS_STATE)
@@ -104,7 +114,6 @@ class BlinkSDKService : Service(), TripEventListener,
         blinkManager.stopDriverActivities(DriverActivitiesSettings.CHARGING_STATE)
         blinkManager.stopDriverActivities(DriverActivitiesSettings.GPS_STATE)
         blinkManager.stopDriverActivities(DriverActivitiesSettings.BATTERY_STATE)
-//        blinkManager.stopDriverActivities(DriverActivitiesSettings.MOCKING_STATE)
     }
 
 
@@ -114,8 +123,12 @@ class BlinkSDKService : Service(), TripEventListener,
         isBlinkSDKServiceRunning = false
         //blinkManager.stopTrip()
         //blinkManager.stopTripWithLocation()
-        blinkManager.stopSavingTripData(EndTripSettings.DESTROY_SERVICE)
-
+        if(isForAuto){
+            blinkManager.stopAutoTripFStore(EndTripSettings.DESTROY_SERVICE)
+        }
+        else{
+            blinkManager.stopManualTripFStore(EndTripSettings.DESTROY_SERVICE)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -134,18 +147,7 @@ class BlinkSDKService : Service(), TripEventListener,
             // create the notification channel
             NotificationsHelper.createNotificationChannel(this)
 
-            // promote service to foreground service
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-//            startForeground(
-//                1,
-//                NotificationsHelper.buildNotification(this),
-//                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-//                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
-//                } else {
-//                    0
-//                }
-//            )
-//        }
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 try {
                     startForeground(
@@ -162,54 +164,35 @@ class BlinkSDKService : Service(), TripEventListener,
         }
     }
 
-    override fun onTripStarted() {
-        NotificationsHelper.showNotificationForEvents(
-            "Trip",
-            getString(R.string.trip_notification_start),
-            MainActivity::class.java, false,0,this@BlinkSDKService
-        )
-        startAllModules()
-    }
-
-    override fun onTripEnded() {
-        NotificationsHelper.showNotificationForEvents(
-            getString(R.string.app_name),
-            getString(R.string.trip_notification_end),
-            MainActivity::class.java, false,0,this@BlinkSDKService
-        )
-        stopAllModules()
-
-    }
 
 
-    override fun onTripFailed(message: String?) {
-        Toast.makeText(this@BlinkSDKService, message, Toast.LENGTH_SHORT).show()
-    }
+
 
     override fun onDriverBehaviorDetected(type:Int,level:Int) {
-        Log.d(TAG, "onDriverBehaviorChangeMooo: "+type+"  level : "+level)
         NotificationsHelper.showNotificationForEvents(
             "Driver Behaviour",
             "Incident type ${getString(getIncidentName(type))} , level $level",
             MainActivity::class.java, false,0,this@BlinkSDKService
-        )    }
+        )
+    }
     private fun getIncidentName(type: Int): Int {
         return when (type) {
             DriverBehaviorType.BRAKE.id -> DriverBehaviorType.BRAKE.text
             DriverBehaviorType.CORNERING.id -> DriverBehaviorType.CORNERING.text
             DriverBehaviorType.SWERVE.id -> DriverBehaviorType.SWERVE.text
+            DriverBehaviorType.OVER_SPEED.id -> DriverBehaviorType.OVER_SPEED.text
+            DriverBehaviorType.ACCELERATION.id -> DriverBehaviorType.ACCELERATION.text
+
 
             else -> 0
         }
     }
 
     override fun onDriverBehaviorFailure(error: String) {
-        Log.d(TAG, "onDriverBehaviourFailureMoo: "+error)
         Toast.makeText(this@BlinkSDKService, error, Toast.LENGTH_SHORT).show()
     }
 
     override fun onAccidentDetected(severity: Int) {
-        Log.d(TAG, "onAccidentDetectedMooo: "+severity)
         NotificationsHelper.showNotificationForEvents(
             "Accident",
             "Accident with severity ${severity}",
@@ -225,7 +208,6 @@ class BlinkSDKService : Service(), TripEventListener,
 
 
     override fun onCallStateDetected(state: Int) {
-        Log.d(TAG, "onCallStateChanged: "+state)
         NotificationsHelper.showNotificationForEvents(
             "Driver Activities (Calling)",
             getCallState(state),
@@ -258,7 +240,6 @@ class BlinkSDKService : Service(), TripEventListener,
     }
 
     override fun onHeadsetStateDetected(pluggedIn: Boolean) {
-        Log.d(TAG, "onHeadsetStateChanged: "+pluggedIn)
         NotificationsHelper.showNotificationForEvents(
             "Driver Activities (Headset)",
             getHeadSetName(pluggedIn),
@@ -332,26 +313,67 @@ class BlinkSDKService : Service(), TripEventListener,
         )
     }
 
-    override fun onOverSpeedDetected(overSpeed: Float) {
+
+
+
+    override fun onLiveTrackingInserted(lastLocationData: LastLocationData) {
+
+        Log.d(TAG, "LiveTrackingMooo: "+lastLocationData)
+    }
+
+    override fun onLiveTrackingUpdated(lastLocationData: LastLocationData) {
+        Log.d(TAG, "LiveTrackingMooo: "+lastLocationData)
+    }
+
+    override fun onTripEnded(endTripData: EndTripData) {
+        Log.d(TAG, "onTripEnded: "+endTripData)
         NotificationsHelper.showNotificationForEvents(
-            "New Driver Behavior(Over Speed)",
-            "OverSpeed $overSpeed",
+            getString(R.string.app_name),
+            getString(R.string.trip_notification_end),
             MainActivity::class.java, false,0,this@BlinkSDKService
         )
+        stopAllModules()    }
+
+
+    override fun onTripFailed(message: String?) {
+        Toast.makeText(this@BlinkSDKService, message, Toast.LENGTH_SHORT).show()
     }
 
-    override fun onAccelerationDetected() {
+    override fun onTripPointUpdated(tripPointData: TripPointData) {
+        Log.d(TAG, "onTripPointUpdated: "+tripPointData)
+    }
+
+
+    override fun onTripStarted(startTripData: StartTripData) {
+        Log.d(TAG, "onTripStarted: "+startTripData)
         NotificationsHelper.showNotificationForEvents(
-            "New Driver Behavior(Over Speed)",
-            "Acceleration ",
+            "Trip",
+            getString(R.string.trip_notification_start),
             MainActivity::class.java, false,0,this@BlinkSDKService
-        )    }
+        )
+        startAllModules()
+    }
 
-    override fun onLocationBasedDriverBehaviorFailed(error: String) {
-        Log.d(TAG, "onNewDriverBehaviorFailed: "+error)
+
+    override fun onTripEnded() {
+        NotificationsHelper.showNotificationForEvents(
+            getString(R.string.app_name),
+            getString(R.string.trip_notification_end),
+            MainActivity::class.java, false,0,this@BlinkSDKService
+        )
+        stopAllModules()
     }
 
 
 
+
+    override fun onTripStarted() {
+        NotificationsHelper.showNotificationForEvents(
+            "Trip",
+            getString(R.string.trip_notification_start),
+            MainActivity::class.java, false,0,this@BlinkSDKService
+        )
+        startAllModules()
+    }
 
 }
