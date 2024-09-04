@@ -61,7 +61,7 @@ class BlinkSDKService : Service(), TripEventListener,
     }
     private fun initializeBlinkManager() {
         blinkManager = BlinkManager.getInstance(this@BlinkSDKService)
-        blinkManager.initialize(Constants.SECRET_KEY, "",object : InitializationResult {
+        blinkManager.initialize(Constants.SECRET_KEY, "299",object : InitializationResult {
             override fun onInitializationSuccess(message: String) {
                 // Here You can start any modules you want
                 Toast.makeText(this@BlinkSDKService, message, Toast.LENGTH_SHORT).show()
